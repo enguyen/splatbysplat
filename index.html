@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Gaussian Splat SBS Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #loading-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+            display: none; /* Hidden by default */
+        }
+        input, button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/",
+            "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@0.1.6/dist/spark.module.js"
+        }
+    }
+    </script>
+
+    <div id="ui-container">
+        <label for="splat-file">Load .PLY Splat:</label>
+        <input type="file" id="splat-file" accept=".ply">
+        <button id="fullscreen-btn">Fullscreen</button>
+    </div>
+
+    <div id="loading-msg">Select a .ply file to begin</div>
+
+    <canvas id="splat-canvas"></canvas>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SparkRenderer, SplatMesh, PackedSplats } from '@sparkjsdev/spark';
+
+        let scene, renderer, controls;
+        let camera, cameraL, cameraR;
+        let currentSplat = null;
+
+        const raycaster = new THREE.Raycaster();
+        const pointerStart = new THREE.Vector2();
+        let isPointerDown = false;
+
+        const canvas = document.getElementById('splat-canvas');
+        const loadingMsg = document.getElementById('loading-msg');
+        const fileInput = document.getElementById('splat-file');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        const eyeSeparation = 0.02;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 3);
+
+            cameraL = new THREE.PerspectiveCamera(70, (window.innerWidth / 2) / window.innerHeight, 0.1, 100);
+            camera.add(cameraL);
+
+            cameraR = new THREE.PerspectiveCamera(70, (window.innerWidth / 2) / window.innerHeight, 0.1, 100);
+            camera.add(cameraR);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setScissorTest(true);
+
+            // The SparkRenderer is added to the scene to automatically handle splat rendering.
+            const sparkRenderer = new SparkRenderer({ renderer });
+            scene.add(sparkRenderer);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            loadingMsg.style.display = 'block';
+
+            window.addEventListener('resize', onWindowResize, false);
+            fileInput.addEventListener('change', loadSplatFile, false);
+            fullscreenBtn.addEventListener('click', toggleFullscreen, false);
+
+            canvas.addEventListener('pointerdown', onPointerDown, false);
+            canvas.addEventListener('pointermove', onPointerMove, false);
+            canvas.addEventListener('pointerup', onPointerUp, false);
+
+            animate();
+        }
+
+        function onWindowResize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            cameraL.aspect = (width / 2) / height;
+            cameraL.updateProjectionMatrix();
+
+            cameraR.aspect = (width / 2) / height;
+            cameraR.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+        }
+
+        async function loadSplatFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            loadingMsg.innerText = 'Loading Splat...';
+            loadingMsg.style.display = 'block';
+
+            try {
+                const buffer = await file.arrayBuffer();
+
+                if (currentSplat) {
+                    scene.remove(currentSplat);
+                    if (currentSplat.dispose) currentSplat.dispose();
+                }
+
+                const packedSplats = new PackedSplats({ fileBytes: buffer });
+                await packedSplats.initialized;
+
+                const splatMesh = new SplatMesh({ packedSplats });
+
+                currentSplat = splatMesh;
+                scene.add(currentSplat);
+
+            } catch (e) {
+                console.error("Error loading splat file:", e);
+                loadingMsg.innerText = 'Error loading file.';
+            } finally {
+                if (loadingMsg.innerText !== 'Error loading file.') {
+                    loadingMsg.style.display = 'none';
+                }
+            }
+        }
+
+        function onPointerDown(event) {
+            isPointerDown = true;
+            pointerStart.set(event.clientX, event.clientY);
+        }
+
+        function onPointerMove(event) {
+            if (isPointerDown) {
+                const pointerCurrent = new THREE.Vector2(event.clientX, event.clientY);
+                if (pointerStart.distanceTo(pointerCurrent) > 4) {
+                    isPointerDown = false;
+                }
+            }
+        }
+
+        function onPointerUp(event) {
+            if (isPointerDown) {
+                const rect = renderer.domElement.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / rect.width * 2 - 1;
+                const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera({ x, y }, camera);
+
+                if (currentSplat) {
+                    const intersects = raycaster.intersectObject(currentSplat, true);
+                    if (intersects.length > 0) {
+                        controls.target.copy(intersects[0].point);
+                    }
+                }
+            }
+            isPointerDown = false;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                canvas.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            // Simple "toe-in" stereo: move cameras, but don't adjust projection matrix
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            const camLPos = camera.position.clone().sub(right.clone().multiplyScalar(eyeSeparation / 2));
+            const camRPos = camera.position.clone().add(right.clone().multiplyScalar(eyeSeparation / 2));
+
+            cameraL.position.copy(camLPos);
+            cameraR.position.copy(camRPos);
+
+            // Both cameras look at the same target
+            cameraL.lookAt(controls.target);
+            cameraR.lookAt(controls.target);
+
+            // Render left eye
+            renderer.setScissor(0, 0, width / 2, height);
+            renderer.setViewport(0, 0, width / 2, height);
+            renderer.render(scene, cameraL);
+
+            // Render right eye
+            renderer.setScissor(width / 2, 0, width / 2, height);
+            renderer.setViewport(width / 2, 0, width / 2, height);
+            renderer.render(scene, cameraR);
+        }
+
+        init();
+    </script>
+</body>
+</html>
