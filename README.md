@@ -1,6 +1,6 @@
 # Side-by-Side Gaussian Splat Viewer
 
-A web-based application to view 3D Gaussian Splatting (.ply) files in a side-by-side (SBS) stereo format, designed for use with AR/VR glasses like the XREAL One Pro.
+A web-based application to view 3D Gaussian Splatting (.ply) files in a side-by-side (SBS) stereo format, designed for use with AR/VR glasses like the XREAL One Pro. Vibe coded using https://jules.google.com/
 
 ## Key Features
 
