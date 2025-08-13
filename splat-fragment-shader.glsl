@@ -3,7 +3,7 @@ precision highp float;
 in vec4 vRgba;
 in vec2 vUv;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
     float dist = dot(vUv, vUv);

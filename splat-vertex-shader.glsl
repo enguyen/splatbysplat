@@ -1,21 +1,19 @@
 precision highp float;
 
-in vec3 splatPosition;
-in vec3 splatColor;
-in float splatOpacity;
-in vec3 splatScale;
-in vec4 splatRotation;
-in vec2 position; // Quad vertex position
+in vec3 quad_position;
+in vec3 a_splatPosition;
+in vec3 a_splatColor;
+in float a_splatOpacity;
+in vec3 a_splatScale;
+in vec4 a_splatRotation;
 
-uniform mat4 projectionMatrix;
-uniform mat4 modelViewMatrix;
 uniform vec2 renderSize;
 
 out vec4 vRgba;
 out vec2 vUv;
 
 void main() {
-    vec4 viewCenter = modelViewMatrix * vec4(splatPosition, 1.0);
+    vec4 viewCenter = modelViewMatrix * vec4(a_splatPosition, 1.0);
 
     // Sanity check
     if (viewCenter.z > -0.1) {
@@ -25,21 +23,21 @@ void main() {
 
     // 3D covariance matrix
     mat3 R = mat3(
-        1.0 - 2.0 * (splatRotation.y * splatRotation.y + splatRotation.z * splatRotation.z),
-        2.0 * (splatRotation.x * splatRotation.y + splatRotation.w * splatRotation.z),
-        2.0 * (splatRotation.x * splatRotation.z - splatRotation.w * splatRotation.y),
-        2.0 * (splatRotation.x * splatRotation.y - splatRotation.w * splatRotation.z),
-        1.0 - 2.0 * (splatRotation.x * splatRotation.x + splatRotation.z * splatRotation.z),
-        2.0 * (splatRotation.y * splatRotation.z + splatRotation.w * splatRotation.x),
-        2.0 * (splatRotation.x * splatRotation.z + splatRotation.w * splatRotation.y),
-        2.0 * (splatRotation.y * splatRotation.z - splatRotation.w * splatRotation.x),
-        1.0 - 2.0 * (splatRotation.x * splatRotation.x + splatRotation.y * splatRotation.y)
+        1.0 - 2.0 * (a_splatRotation.y * a_splatRotation.y + a_splatRotation.z * a_splatRotation.z),
+        2.0 * (a_splatRotation.x * a_splatRotation.y + a_splatRotation.w * a_splatRotation.z),
+        2.0 * (a_splatRotation.x * a_splatRotation.z - a_splatRotation.w * a_splatRotation.y),
+        2.0 * (a_splatRotation.x * a_splatRotation.y - a_splatRotation.w * a_splatRotation.z),
+        1.0 - 2.0 * (a_splatRotation.x * a_splatRotation.x + a_splatRotation.z * a_splatRotation.z),
+        2.0 * (a_splatRotation.y * a_splatRotation.z + a_splatRotation.w * a_splatRotation.x),
+        2.0 * (a_splatRotation.x * a_splatRotation.z + a_splatRotation.w * a_splatRotation.y),
+        2.0 * (a_splatRotation.y * a_splatRotation.z - a_splatRotation.w * a_splatRotation.x),
+        1.0 - 2.0 * (a_splatRotation.x * a_splatRotation.x + a_splatRotation.y * a_splatRotation.y)
     );
 
     mat3 S = mat3(
-        splatScale.x, 0.0, 0.0,
-        0.0, splatScale.y, 0.0,
-        0.0, 0.0, splatScale.z
+        a_splatScale.x, 0.0, 0.0,
+        0.0, a_splatScale.y, 0.0,
+        0.0, 0.0, a_splatScale.z
     );
 
     mat3 M = R * S;
@@ -76,14 +74,14 @@ void main() {
     vec2 majorAxis = v1 * radius1;
     vec2 minorAxis = v2 * radius2;
 
-    vUv = position;
+    vUv = quad_position.xy;
 
     vec4 clipCenter = projectionMatrix * viewCenter;
     vec2 ndcCenter = clipCenter.xy / clipCenter.w;
 
-    vec2 pos_offset = majorAxis * position.x + minorAxis * position.y;
+    vec2 pos_offset = majorAxis * quad_position.x + minorAxis * quad_position.y;
     vec2 ndc_offset = pos_offset * 2.0 / renderSize;
 
-    gl_Position = vec4(ndcCenter + ndc_offset, clipCenter.z / clipCenter.w, 1.0);
-    vRgba = vec4(splatColor, splatOpacity);
+    gl_Position = vec4(ndcCenter + ndc_offset, clipCenter.z, clipCenter.w);
+    vRgba = vec4(a_splatColor, a_splatOpacity);
 }

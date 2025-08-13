@@ -216,14 +216,19 @@ async function loadSplatFile(event) {
 
         console.log("Creating geometry...");
         const instancedGeometry = new THREE.InstancedBufferGeometry();
-        instancedGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]), 3));
-        instancedGeometry.setIndex(new THREE.BufferAttribute(new Uint16Array([0, 1, 2, 1, 3, 2]), 1));
+        instancedGeometry.setAttribute('quad_position', new THREE.BufferAttribute(new Float32Array([
+            -1.0, -1.0, 0.0,
+             1.0, -1.0, 0.0,
+             1.0,  1.0, 0.0,
+            -1.0,  1.0, 0.0
+        ]), 3));
+        instancedGeometry.setIndex(new THREE.BufferAttribute(new Uint16Array([0, 1, 2, 0, 2, 3]), 1));
 
-        instancedGeometry.setAttribute('splatPosition', new THREE.InstancedBufferAttribute(splatData.positions, 3));
-        instancedGeometry.setAttribute('splatColor', new THREE.InstancedBufferAttribute(splatData.colors, 3));
-        instancedGeometry.setAttribute('splatOpacity', new THREE.InstancedBufferAttribute(splatData.opacities, 1));
-        instancedGeometry.setAttribute('splatScale', new THREE.InstancedBufferAttribute(splatData.scales, 3));
-        instancedGeometry.setAttribute('splatRotation', new THREE.InstancedBufferAttribute(splatData.rotations, 4));
+        instancedGeometry.setAttribute('a_splatPosition', new THREE.InstancedBufferAttribute(splatData.positions, 3));
+        instancedGeometry.setAttribute('a_splatColor', new THREE.InstancedBufferAttribute(splatData.colors, 3));
+        instancedGeometry.setAttribute('a_splatOpacity', new THREE.InstancedBufferAttribute(splatData.opacities, 1));
+        instancedGeometry.setAttribute('a_splatScale', new THREE.InstancedBufferAttribute(splatData.scales, 3));
+        instancedGeometry.setAttribute('a_splatRotation', new THREE.InstancedBufferAttribute(splatData.rotations, 4));
         console.log("Geometry created.");
 
         console.log("Loading shaders...");
